@@ -1,5 +1,5 @@
 import shutil
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable
@@ -14,11 +14,22 @@ EXIF_DATETIME_TAGS = ("DateTimeOriginal", "DateTimeDigitized", "DateTime")
 # =========================
 # 配置区
 # =========================
-INPUT_DIR = Path(r"D:\photos\burst")
-OUTPUT_DIR = Path(r"D:\photos\selected_100")
+INPUT_DIR = Path(r"F:/Crop3DPlus/烟草/20260325/RGB/YY-23")
+OUTPUT_DIR = Path(r"F:/Crop3DPlus/烟草/20260325/RGB/YY-23_100")
 SELECT_COUNT = 100
 WORKERS = 8
-PREFIX_INDEX = True
+
+
+def print_progress(current: int, total: int, prefix: str) -> None:
+    if total <= 0:
+        return
+    bar_width = 30
+    ratio = current / total
+    filled = int(bar_width * ratio)
+    bar = "#" * filled + "-" * (bar_width - filled)
+    print(f"\r{prefix} [{bar}] {current}/{total} ({ratio * 100:5.1f}%)", end="", flush=True)
+    if current >= total:
+        print()
 
 
 def iter_image_files(input_dir: Path) -> Iterable[Path]:
@@ -59,8 +70,15 @@ def collect_sorted_images(input_dir: Path, workers: int) -> list[Path]:
     if not image_files:
         return []
 
+    total = len(image_files)
+    print(f"Reading metadata for {total} image(s)...")
+    keyed_files = []
     with ThreadPoolExecutor(max_workers=max(1, workers)) as executor:
-        keyed_files = list(executor.map(lambda p: (image_sort_key(p), p), image_files))
+        future_map = {executor.submit(image_sort_key, path): path for path in image_files}
+        for idx, future in enumerate(as_completed(future_map), start=1):
+            path = future_map[future]
+            keyed_files.append((future.result(), path))
+            print_progress(idx, total, "Scanning")
 
     keyed_files.sort(key=lambda item: item[0])
     return [path for _, path in keyed_files]
@@ -83,16 +101,15 @@ def select_evenly(sorted_images: list[Path], count: int) -> list[Path]:
     return [sorted_images[i] for i in indices]
 
 
-def copy_selected_images(selected_images: list[Path], output_dir: Path, prefix_index: bool) -> None:
+def copy_selected_images(selected_images: list[Path], output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    digits = max(3, len(str(len(selected_images))))
+    total = len(selected_images)
+    print(f"Copying {total} selected image(s)...")
 
     for idx, src in enumerate(selected_images, start=1):
-        if prefix_index:
-            dst_name = f"{idx:0{digits}d}_{src.name}"
-        else:
-            dst_name = src.name
+        dst_name = f"{idx}{src.suffix.lower()}"
         shutil.copy2(src, output_dir / dst_name)
+        print_progress(idx, total, "Copying ")
 
 
 def main() -> None:
@@ -107,7 +124,7 @@ def main() -> None:
         return
 
     selected_images = select_evenly(sorted_images, SELECT_COUNT)
-    copy_selected_images(selected_images, OUTPUT_DIR, PREFIX_INDEX)
+    copy_selected_images(selected_images, OUTPUT_DIR)
 
     print(f"Found: {len(sorted_images)} images")
     print(f"Selected: {len(selected_images)} images")

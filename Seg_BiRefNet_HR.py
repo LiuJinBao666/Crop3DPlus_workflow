@@ -10,10 +10,15 @@ from transformers import AutoModelForImageSegmentation
 # =========================
 # 配置区
 # =========================
-INPUT_DIR = r"./BiRefNet/images/烟草"              # 输入图片文件夹
-OUTPUT_MASK_DIR = r"./BiRefNet/outputs/烟草/masks" # 输出 mask
-OUTPUT_RGBA_DIR = r"./BiRefNet/outputs/烟草/rgba"  # 输出透明背景图
-OUTPUT_WHITE_DIR = r"./BiRefNet/outputs/烟草/whitebg"  # 输出白底图
+# INPUT_DIR = r"F:/Crop3DPlus/烟草/20260325/RGB/CB-30_100"              # 输入图片文件夹
+# OUTPUT_MASK_DIR = r"F:/Crop3DPlus/烟草/20260325/RGB/CB-30_100_masks" # 输出 mask
+# OUTPUT_RGBA_DIR = r"F:/Crop3DPlus/烟草/20260325/RGB/CB-30_100_rgba"  # 输出透明背景图
+# OUTPUT_WHITE_DIR = r"F:/Crop3DPlus/烟草/20260325/RGB/CB-30_100_whitebg"  # 输出白底图
+
+INPUT_DIR = r"D:\Users\Administrator\Downloads\1111"              # 输入图片文件夹
+OUTPUT_MASK_DIR = r"D:\Users\Administrator\Downloads\1111_masks" # 输出 mask
+OUTPUT_RGBA_DIR = r"D:\Users\Administrator\Downloads\1111_rgba"  # 输出透明背景图
+OUTPUT_WHITE_DIR = r"D:\Users\Administrator\Downloads\1111_whitebg"  # 输出白底图
 
 MODEL_ID = "ZhengPeng7/BiRefNet_HR"
 IMAGE_SIZE = (2048, 2048)
@@ -64,6 +69,22 @@ transform_image = transforms.Compose([
 ])
 
 
+def print_progress(current: int, total: int, current_name: str):
+    if total <= 0:
+        return
+    bar_width = 30
+    ratio = current / total
+    filled = int(bar_width * ratio)
+    bar = "#" * filled + "-" * (bar_width - filled)
+    print(
+        f"\rProgress [{bar}] {current}/{total} ({ratio * 100:5.1f}%)  {current_name}",
+        end="",
+        flush=True,
+    )
+    if current >= total:
+        print()
+
+
 def load_image_rgb(image_path: str) -> Image.Image:
     return Image.open(image_path).convert("RGB")
 
@@ -100,7 +121,7 @@ def make_whitebg(image: Image.Image, mask: Image.Image) -> Image.Image:
     return composed.convert("RGB")
 
 
-def process_one_image(image_path: Path):
+def process_one_image(image_path: Path) -> tuple[bool, str]:
     try:
         image = load_image_rgb(str(image_path))
         mask = predict_mask(birefnet, image)
@@ -109,13 +130,13 @@ def process_one_image(image_path: Path):
 
         stem = image_path.stem
 
-        mask.save(Path(OUTPUT_MASK_DIR) / f"{stem}_mask.png")
-        rgba.save(Path(OUTPUT_RGBA_DIR) / f"{stem}_rgba.png")
-        whitebg.save(Path(OUTPUT_WHITE_DIR) / f"{stem}_whitebg.jpg", quality=95)
+        mask.save(Path(OUTPUT_MASK_DIR) / f"{stem}.png")
+        rgba.save(Path(OUTPUT_RGBA_DIR) / f"{stem}.png")
+        whitebg.save(Path(OUTPUT_WHITE_DIR) / f"{stem}.jpg", quality=95)
 
-        print(f"[OK] {image_path.name}")
+        return True, image_path.name
     except Exception as e:
-        print(f"[FAIL] {image_path.name}: {e}")
+        return False, f"{image_path.name}: {e}"
 
 
 def main():
@@ -129,8 +150,13 @@ def main():
         return
 
     print(f"Found {len(image_files)} image(s).")
-    for img_path in image_files:
-        process_one_image(img_path)
+    total = len(image_files)
+    for idx, img_path in enumerate(image_files, start=1):
+        ok, message = process_one_image(img_path)
+        if not ok:
+            print()
+            print(f"[FAIL] {message}")
+        print_progress(idx, total, img_path.name)
 
     print("Done.")
 
