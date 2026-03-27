@@ -7,7 +7,7 @@ from pathlib import Path
 # 配置区
 # =========================
 INPUT_DIR = Path(r"F:/Crop3DPlus/西兰花/20260327/Video/")
-OUTPUT_DIR = Path(r"F:/Crop3DPlus/西兰花/20260327/RGB/")
+OUTPUT_DIR = Path(r"F:/Crop3DPlus/西兰花/20260327/RGB2222/")
 FRAMES_PER_MAIN_VIDEO = 33
 FRAMES_FOR_TOP_VIDEO = 3
 TOP_VIDEO_NAME = "top.mp4"
@@ -78,6 +78,35 @@ def get_video_metadata(video_path: Path) -> tuple[datetime, float]:
     return captured_at, duration
 
 
+def get_video_size(video_path: Path) -> tuple[int, int]:
+    command = [
+        FFPROBE_CMD,
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=width,height",
+        "-of",
+        "csv=p=0:s=x",
+        str(video_path),
+    ]
+    result = run_command(command)
+    text = result.stdout.strip()
+
+    if not text or "x" not in text:
+        raise ValueError(f"Cannot read video size from: {video_path}")
+
+    width_str, height_str = text.split("x", 1)
+    width = int(width_str)
+    height = int(height_str)
+
+    if width <= 0 or height <= 0:
+        raise ValueError(f"Invalid video size for: {video_path}")
+
+    return width, height
+
+
 def collect_inputs(input_dir: Path) -> tuple[list[Path], Path | None]:
     files = [p for p in input_dir.iterdir() if p.is_file()]
     video_files = [p for p in files if p.suffix.lower() in VIDEO_EXTS]
@@ -100,16 +129,33 @@ def collect_inputs(input_dir: Path) -> tuple[list[Path], Path | None]:
     return normal_videos, top_video
 
 
-def extract_frames(video_path: Path, output_dir: Path, start_index: int, count: int, duration: float) -> None:
+def extract_frames(
+    video_path: Path,
+    output_dir: Path,
+    start_index: int,
+    count: int,
+    duration: float,
+    force_portrait: bool = False,
+) -> None:
     fps = count / duration
     output_pattern = str(output_dir / "%d.jpg")
+
+    vf_parts = [f"fps={fps:.12f}"]
+
+    if force_portrait:
+        width, height = get_video_size(video_path)
+        if width > height:
+            # 横屏转竖屏：顺时针旋转 90 度
+            vf_parts.append("transpose=1")
+            print(f"  Detected landscape top video, rotating to portrait: {video_path.name}")
+
     command = [
         FFMPEG_CMD,
         "-y",
         "-i",
         str(video_path),
         "-vf",
-        f"fps={fps:.12f}",
+        ",".join(vf_parts),
         "-q:v",
         "2",
         "-frames:v",
@@ -121,18 +167,33 @@ def extract_frames(video_path: Path, output_dir: Path, start_index: int, count: 
     subprocess.run(command, check=True)
 
 
-def build_video_infos(folder_path: Path) -> list[tuple[datetime, str, Path, float, int]]:
+def build_video_infos(folder_path: Path) -> list[tuple[datetime, str, Path, float, int, bool]]:
     normal_videos, top_video = collect_inputs(folder_path)
     video_infos = []
+
     for video_path in normal_videos:
         captured_at, duration = get_video_metadata(video_path)
-        video_infos.append((captured_at, video_path.name.lower(), video_path, duration, FRAMES_PER_MAIN_VIDEO))
+        video_infos.append((
+            captured_at,
+            video_path.name.lower(),
+            video_path,
+            duration,
+            FRAMES_PER_MAIN_VIDEO,
+            False,   # 普通视频不需要强制转竖屏
+        ))
 
     video_infos.sort(key=lambda item: (item[0], item[1]))
 
     if top_video is not None:
         captured_at, duration = get_video_metadata(top_video)
-        video_infos.append((captured_at, top_video.name.lower(), top_video, duration, FRAMES_FOR_TOP_VIDEO))
+        video_infos.append((
+            captured_at,
+            top_video.name.lower(),
+            top_video,
+            duration,
+            FRAMES_FOR_TOP_VIDEO,
+            True,    # top.mp4 需要检查是否横屏
+        ))
 
     return video_infos
 
@@ -144,9 +205,9 @@ def process_one_folder(folder_path: Path, output_dir: Path) -> None:
     current_index = 1
     total_videos = len(video_infos)
     print(f"\nProcessing folder: {folder_path.name}")
-    for order, (_, _, video_path, duration, frame_count) in enumerate(video_infos, start=1):
+    for order, (_, _, video_path, duration, frame_count, force_portrait) in enumerate(video_infos, start=1):
         print(f"[{order}/{total_videos}] Extracting {frame_count} frame(s) from {video_path.name} ...")
-        extract_frames(video_path, output_dir, current_index, frame_count, duration)
+        extract_frames(video_path, output_dir, current_index, frame_count, duration, force_portrait=force_portrait)
         current_index += frame_count
 
     print(f"Done: {folder_path.name}")
