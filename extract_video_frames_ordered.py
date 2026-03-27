@@ -1,5 +1,3 @@
-import json
-import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -8,14 +6,15 @@ from pathlib import Path
 # =========================
 # 配置区
 # =========================
-INPUT_DIR = Path(r"F:/Crop3DPlus/烟草/20260325/RGB/CB-30")
-OUTPUT_DIR = Path(r"F:/Crop3DPlus/烟草/20260325/RGB/CB-30_100")
-FRAMES_PER_VIDEO = 33
+INPUT_DIR = Path(r"F:/Crop3DPlus/西兰花/20260327/Video/")
+OUTPUT_DIR = Path(r"F:/Crop3DPlus/西兰花/20260327/RGB/")
+FRAMES_PER_MAIN_VIDEO = 33
+FRAMES_FOR_TOP_VIDEO = 3
+TOP_VIDEO_NAME = "top.mp4"
 FFMPEG_CMD = "ffmpeg"
 FFPROBE_CMD = "ffprobe"
 
 VIDEO_EXTS = {".mp4"}
-IMAGE_EXTS = {".jpg", ".jpeg"}
 DATETIME_FORMATS = (
     "%Y-%m-%dT%H:%M:%S.%fZ",
     "%Y-%m-%dT%H:%M:%SZ",
@@ -41,64 +40,64 @@ def get_video_metadata(video_path: Path) -> tuple[datetime, float]:
     command = [
         FFPROBE_CMD,
         "-v",
-        "quiet",
-        "-print_format",
-        "json",
-        "-show_format",
-        "-show_streams",
+        "error",
+        "-show_entries",
+        "format=duration:format_tags=creation_time:stream_tags=creation_time,com.apple.quicktime.creationdate,date",
+        "-of",
+        "default=noprint_wrappers=1",
         str(video_path),
     ]
     result = run_command(command)
-    data = json.loads(result.stdout)
 
-    format_info = data.get("format", {})
-    streams = data.get("streams", [])
-    tags_to_check = []
-
-    if isinstance(format_info.get("tags"), dict):
-        tags_to_check.append(format_info["tags"])
-
-    for stream in streams:
-        if isinstance(stream.get("tags"), dict):
-            tags_to_check.append(stream["tags"])
-
+    duration = None
     captured_at = None
-    for tags in tags_to_check:
-        for key in ("creation_time", "com.apple.quicktime.creationdate", "date"):
-            value = tags.get(key)
-            if not value:
-                continue
-            captured_at = parse_datetime(str(value))
-            if captured_at is not None:
-                break
-        if captured_at is not None:
-            break
+    for raw_line in result.stdout.splitlines():
+        line = raw_line.strip()
+        if not line or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        if key == "duration":
+            try:
+                duration = float(value)
+            except ValueError:
+                pass
+            continue
+
+        if key in {"TAG:creation_time", "TAG:com.apple.quicktime.creationdate", "TAG:date"} and captured_at is None:
+            captured_at = parse_datetime(value)
 
     if captured_at is None:
         captured_at = datetime.fromtimestamp(video_path.stat().st_mtime)
 
-    duration_str = format_info.get("duration")
-    if duration_str is None:
+    if duration is None:
         raise ValueError(f"Cannot read duration from: {video_path}")
-
-    duration = float(duration_str)
     if duration <= 0:
         raise ValueError(f"Invalid duration for: {video_path}")
 
     return captured_at, duration
 
 
-def collect_inputs(input_dir: Path) -> tuple[list[Path], Path]:
+def collect_inputs(input_dir: Path) -> tuple[list[Path], Path | None]:
     files = [p for p in input_dir.iterdir() if p.is_file()]
     video_files = [p for p in files if p.suffix.lower() in VIDEO_EXTS]
-    image_files = [p for p in files if p.suffix.lower() in IMAGE_EXTS]
+    top_video = None
+    normal_videos = []
 
-    if len(video_files) != 3:
-        raise ValueError(f"Expected exactly 3 mp4 files, found {len(video_files)}")
-    if len(image_files) != 1:
-        raise ValueError(f"Expected exactly 1 jpg file, found {len(image_files)}")
+    for video_path in video_files:
+        if video_path.name.lower() == TOP_VIDEO_NAME.lower():
+            top_video = video_path
+        else:
+            normal_videos.append(video_path)
 
-    return video_files, image_files[0]
+    if top_video is not None:
+        if len(normal_videos) != 3:
+            raise ValueError(f"Expected 3 normal mp4 files plus {TOP_VIDEO_NAME}, found {len(normal_videos)} normal video(s)")
+    else:
+        if len(normal_videos) != 3:
+            raise ValueError(f"Expected exactly 3 mp4 files when {TOP_VIDEO_NAME} is absent, found {len(normal_videos)}")
+
+    return normal_videos, top_video
 
 
 def extract_frames(video_path: Path, output_dir: Path, start_index: int, count: int, duration: float) -> None:
@@ -122,32 +121,52 @@ def extract_frames(video_path: Path, output_dir: Path, start_index: int, count: 
     subprocess.run(command, check=True)
 
 
+def build_video_infos(folder_path: Path) -> list[tuple[datetime, str, Path, float, int]]:
+    normal_videos, top_video = collect_inputs(folder_path)
+    video_infos = []
+    for video_path in normal_videos:
+        captured_at, duration = get_video_metadata(video_path)
+        video_infos.append((captured_at, video_path.name.lower(), video_path, duration, FRAMES_PER_MAIN_VIDEO))
+
+    video_infos.sort(key=lambda item: (item[0], item[1]))
+
+    if top_video is not None:
+        captured_at, duration = get_video_metadata(top_video)
+        video_infos.append((captured_at, top_video.name.lower(), top_video, duration, FRAMES_FOR_TOP_VIDEO))
+
+    return video_infos
+
+
+def process_one_folder(folder_path: Path, output_dir: Path) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    video_infos = build_video_infos(folder_path)
+
+    current_index = 1
+    total_videos = len(video_infos)
+    print(f"\nProcessing folder: {folder_path.name}")
+    for order, (_, _, video_path, duration, frame_count) in enumerate(video_infos, start=1):
+        print(f"[{order}/{total_videos}] Extracting {frame_count} frame(s) from {video_path.name} ...")
+        extract_frames(video_path, output_dir, current_index, frame_count, duration)
+        current_index += frame_count
+
+    print(f"Done: {folder_path.name}")
+    print(f"Frames saved to: {output_dir}")
+    print(f"Total images: {current_index - 1}")
+
+
 def main() -> None:
     if not INPUT_DIR.exists() or not INPUT_DIR.is_dir():
         raise FileNotFoundError(f"Input folder not found: {INPUT_DIR}")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    video_files, source_image = collect_inputs(INPUT_DIR)
+    subfolders = sorted([p for p in INPUT_DIR.iterdir() if p.is_dir()], key=lambda p: p.name.lower())
+    if not subfolders:
+        raise FileNotFoundError(f"No subfolders found in: {INPUT_DIR}")
 
-    video_infos = []
-    for video_path in video_files:
-        captured_at, duration = get_video_metadata(video_path)
-        video_infos.append((captured_at, video_path.name.lower(), video_path, duration))
-
-    video_infos.sort(key=lambda item: (item[0], item[1]))
-
-    current_index = 1
-    for order, (_, _, video_path, duration) in enumerate(video_infos, start=1):
-        print(f"[{order}/3] Extracting {FRAMES_PER_VIDEO} frame(s) from {video_path.name} ...")
-        extract_frames(video_path, OUTPUT_DIR, current_index, FRAMES_PER_VIDEO, duration)
-        current_index += FRAMES_PER_VIDEO
-
-    final_image_path = OUTPUT_DIR / "100.jpg"
-    shutil.copy2(source_image, final_image_path)
-
-    print("Done.")
-    print(f"Frames saved to: {OUTPUT_DIR}")
-    print(f"Final still image saved as: {final_image_path.name}")
+    total_folders = len(subfolders)
+    for idx, folder_path in enumerate(subfolders, start=1):
+        print(f"\n=== Folder {idx}/{total_folders} ===")
+        process_one_folder(folder_path, OUTPUT_DIR / folder_path.name)
 
 
 if __name__ == "__main__":
