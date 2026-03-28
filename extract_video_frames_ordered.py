@@ -7,7 +7,7 @@ from pathlib import Path
 # 配置区
 # =========================
 INPUT_DIR = Path(r"F:/Crop3DPlus/西兰花/20260327/Video/")
-OUTPUT_DIR = Path(r"F:/Crop3DPlus/西兰花/20260327/RGB2222/")
+OUTPUT_DIR = Path(r"F:/Crop3DPlus/西兰花/20260327/RGB/")
 FRAMES_PER_MAIN_VIDEO = 33
 FRAMES_FOR_TOP_VIDEO = 3
 TOP_VIDEO_NAME = "top.mp4"

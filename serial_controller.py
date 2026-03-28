@@ -15,7 +15,7 @@ class TurntableControllerApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Turntable Serial Controller")
-        self.root.geometry("640x420")
+        self.root.geometry("640x640")
         self.root.minsize(560, 360)
 
         self.port = "COM3"
@@ -247,10 +247,10 @@ class TurntableControllerApp:
                 self.safe_after(self.append_log, f"Command failed: {command}")
 
     def send_go(self):
-        self.send_command("GO")
+        self.send_command("GO\r")
 
     def send_stop(self):
-        self.send_command("ST")
+        self.send_command("ST\r")
 
     def on_close(self):
         self.stop_event.set()
