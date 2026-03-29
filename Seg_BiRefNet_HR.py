@@ -9,8 +9,8 @@ from transformers import AutoModelForImageSegmentation
 # =========================
 # 配置区
 # =========================
-INPUT_ROOT = r"F:/Crop3DPlus/西兰花/20260327/RGB"   # 输入总文件夹，内部包含多个子文件夹
-OUTPUT_ROOT = r"F:/Crop3DPlus/西兰花/20260327/RGB-Seg"  # 输出总文件夹
+INPUT_ROOT = r"F:/Crop3DPlus/甘蓝/20260328/RGB/"   # 输入总文件夹，内部包含多个子文件夹
+OUTPUT_ROOT = r"F:/Crop3DPlus/甘蓝/20260328/RGB-Seg"  # 输出总文件夹
 
 MODEL_ID = "ZhengPeng7/BiRefNet_HR"
 IMAGE_SIZE = (2048, 2048)

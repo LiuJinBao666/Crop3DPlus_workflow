@@ -6,11 +6,11 @@ from pathlib import Path
 # =========================
 # 配置区
 # =========================
-INPUT_DIR = Path(r"F:/Crop3DPlus/西兰花/20260327/Video/")
-OUTPUT_DIR = Path(r"F:/Crop3DPlus/西兰花/20260327/RGB/")
+INPUT_DIR = Path(r"F:/Crop3DPlus/甘蓝/20260328/Video/")
+OUTPUT_DIR = Path(r"F:/Crop3DPlus/甘蓝/20260328/RGB/")
 FRAMES_PER_MAIN_VIDEO = 33
 FRAMES_FOR_TOP_VIDEO = 3
-TOP_VIDEO_NAME = "top.mp4"
+TOP_VIDEO_MAX_DURATION = 10.0
 FFMPEG_CMD = "ffmpeg"
 FFPROBE_CMD = "ffprobe"
 
@@ -88,18 +88,17 @@ def get_video_size(video_path: Path) -> tuple[int, int]:
         "-show_entries",
         "stream=width,height",
         "-of",
-        "csv=p=0:s=x",
+        "default=noprint_wrappers=1:nokey=1",
         str(video_path),
     ]
     result = run_command(command)
-    text = result.stdout.strip()
+    values = [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
-    if not text or "x" not in text:
+    if len(values) < 2:
         raise ValueError(f"Cannot read video size from: {video_path}")
 
-    width_str, height_str = text.split("x", 1)
-    width = int(width_str)
-    height = int(height_str)
+    width = int(values[0])
+    height = int(values[1])
 
     if width <= 0 or height <= 0:
         raise ValueError(f"Invalid video size for: {video_path}")
@@ -110,21 +109,27 @@ def get_video_size(video_path: Path) -> tuple[int, int]:
 def collect_inputs(input_dir: Path) -> tuple[list[Path], Path | None]:
     files = [p for p in input_dir.iterdir() if p.is_file()]
     video_files = [p for p in files if p.suffix.lower() in VIDEO_EXTS]
-    top_video = None
+    if len(video_files) != 4:
+        raise ValueError(f"Expected exactly 4 mp4 files, found {len(video_files)}")
+
+    top_candidates = []
     normal_videos = []
 
     for video_path in video_files:
-        if video_path.name.lower() == TOP_VIDEO_NAME.lower():
-            top_video = video_path
+        _, duration = get_video_metadata(video_path)
+        if duration < TOP_VIDEO_MAX_DURATION:
+            top_candidates.append(video_path)
         else:
             normal_videos.append(video_path)
 
-    if top_video is not None:
-        if len(normal_videos) != 3:
-            raise ValueError(f"Expected 3 normal mp4 files plus {TOP_VIDEO_NAME}, found {len(normal_videos)} normal video(s)")
-    else:
-        if len(normal_videos) != 3:
-            raise ValueError(f"Expected exactly 3 mp4 files when {TOP_VIDEO_NAME} is absent, found {len(normal_videos)}")
+    if len(top_candidates) != 1:
+        raise ValueError(
+            f"Expected exactly 1 short video (< {TOP_VIDEO_MAX_DURATION:g}s) as top video, found {len(top_candidates)}"
+        )
+    if len(normal_videos) != 3:
+        raise ValueError(f"Expected 3 normal videos, found {len(normal_videos)}")
+
+    top_video = top_candidates[0]
 
     return normal_videos, top_video
 
@@ -192,7 +197,7 @@ def build_video_infos(folder_path: Path) -> list[tuple[datetime, str, Path, floa
             top_video,
             duration,
             FRAMES_FOR_TOP_VIDEO,
-            True,    # top.mp4 需要检查是否横屏
+            True,   
         ))
 
     return video_infos
