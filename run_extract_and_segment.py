@@ -12,9 +12,9 @@ SEGMENT_SCRIPT = BASE_DIR / "Seg_BiRefNet_HR.py"
 # 配置区
 # =========================
 # 设为 None 时，沿用原脚本里的默认配置
-VIDEO_INPUT_DIR = r"F:\Crop3DPlus\烟草\20260401/Video/"
-FRAME_OUTPUT_DIR = r"F:\Crop3DPlus\烟草\20260401/RGB/"
-SEG_OUTPUT_DIR = r"F:\Crop3DPlus\烟草\20260401/RGB-Seg/"
+VIDEO_INPUT_DIR = r"F:/Crop3DPlus/烟草/20260415/111/"
+FRAME_OUTPUT_DIR = r"F:/Crop3DPlus/烟草/20260415/RGB/"
+SEG_OUTPUT_DIR = r"F:/Crop3DPlus/烟草/20260415/RGB-Seg/"
 
 
 def load_module(module_name: str, script_path: Path) -> ModuleType:
