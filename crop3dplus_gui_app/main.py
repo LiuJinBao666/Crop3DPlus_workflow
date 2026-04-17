@@ -196,6 +196,11 @@ class NoWheelDoubleSpinBox(QtWidgets.QDoubleSpinBox):
         event.ignore()
 
 
+class NoWheelComboBox(QtWidgets.QComboBox):
+    def wheelEvent(self, event) -> None:
+        event.ignore()
+
+
 class WorkerThread(QtCore.QThread):
     log_message = Signal(str)
     progress_changed = Signal(int, str)
@@ -511,7 +516,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.segment_use_fp16 = QtWidgets.QCheckBox("CUDA 可用时使用 FP16")
         self.segment_use_fp16.setChecked(True)
 
-        self.segment_device = QtWidgets.QComboBox()
+        self.segment_device = NoWheelComboBox()
         self.segment_device.addItems(["auto", "cuda", "cpu"])
 
         form.addRow("模型 ID", self.segment_model_id)
@@ -594,7 +599,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.pipeline_use_fp16 = QtWidgets.QCheckBox("CUDA 可用时使用 FP16")
         self.pipeline_use_fp16.setChecked(True)
-        self.pipeline_device = QtWidgets.QComboBox()
+        self.pipeline_device = NoWheelComboBox()
         self.pipeline_device.addItems(["auto", "cuda", "cpu"])
 
         segment_form.addRow("模型 ID", self.pipeline_model_id)
