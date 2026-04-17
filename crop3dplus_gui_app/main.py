@@ -186,6 +186,16 @@ class PathPicker(QtWidgets.QWidget):
         return self.line_edit.text().strip()
 
 
+class NoWheelSpinBox(QtWidgets.QSpinBox):
+    def wheelEvent(self, event) -> None:
+        event.ignore()
+
+
+class NoWheelDoubleSpinBox(QtWidgets.QDoubleSpinBox):
+    def wheelEvent(self, event) -> None:
+        event.ignore()
+
+
 class WorkerThread(QtCore.QThread):
     log_message = Signal(str)
     progress_changed = Signal(int, str)
@@ -426,15 +436,15 @@ class MainWindow(QtWidgets.QMainWindow):
         form.setHorizontalSpacing(18)
         form.setVerticalSpacing(12)
 
-        self.extract_main_frames = QtWidgets.QSpinBox()
+        self.extract_main_frames = NoWheelSpinBox()
         self.extract_main_frames.setRange(1, 500)
         self.extract_main_frames.setValue(33)
 
-        self.extract_top_frames = QtWidgets.QSpinBox()
+        self.extract_top_frames = NoWheelSpinBox()
         self.extract_top_frames.setRange(1, 100)
         self.extract_top_frames.setValue(3)
 
-        self.extract_top_duration = QtWidgets.QDoubleSpinBox()
+        self.extract_top_duration = NoWheelDoubleSpinBox()
         self.extract_top_duration.setRange(0.1, 600.0)
         self.extract_top_duration.setDecimals(2)
         self.extract_top_duration.setSingleStep(0.5)
@@ -483,11 +493,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.segment_model_id = QtWidgets.QLineEdit("ZhengPeng7/BiRefNet_HR")
 
         image_size_row = QtWidgets.QHBoxLayout()
-        self.segment_width = QtWidgets.QSpinBox()
+        self.segment_width = NoWheelSpinBox()
         self.segment_width.setRange(256, 8192)
         self.segment_width.setSingleStep(256)
         self.segment_width.setValue(2048)
-        self.segment_height = QtWidgets.QSpinBox()
+        self.segment_height = NoWheelSpinBox()
         self.segment_height.setRange(256, 8192)
         self.segment_height.setSingleStep(256)
         self.segment_height.setValue(2048)
@@ -540,13 +550,13 @@ class MainWindow(QtWidgets.QMainWindow):
         extract_form.setHorizontalSpacing(18)
         extract_form.setVerticalSpacing(12)
 
-        self.pipeline_main_frames = QtWidgets.QSpinBox()
+        self.pipeline_main_frames = NoWheelSpinBox()
         self.pipeline_main_frames.setRange(1, 500)
         self.pipeline_main_frames.setValue(33)
-        self.pipeline_top_frames = QtWidgets.QSpinBox()
+        self.pipeline_top_frames = NoWheelSpinBox()
         self.pipeline_top_frames.setRange(1, 100)
         self.pipeline_top_frames.setValue(3)
-        self.pipeline_top_duration = QtWidgets.QDoubleSpinBox()
+        self.pipeline_top_duration = NoWheelDoubleSpinBox()
         self.pipeline_top_duration.setRange(0.1, 600.0)
         self.pipeline_top_duration.setDecimals(2)
         self.pipeline_top_duration.setSingleStep(0.5)
@@ -567,11 +577,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.pipeline_model_id = QtWidgets.QLineEdit("ZhengPeng7/BiRefNet_HR")
         size_row = QtWidgets.QHBoxLayout()
-        self.pipeline_width = QtWidgets.QSpinBox()
+        self.pipeline_width = NoWheelSpinBox()
         self.pipeline_width.setRange(256, 8192)
         self.pipeline_width.setSingleStep(256)
         self.pipeline_width.setValue(2048)
-        self.pipeline_height = QtWidgets.QSpinBox()
+        self.pipeline_height = NoWheelSpinBox()
         self.pipeline_height.setRange(256, 8192)
         self.pipeline_height.setSingleStep(256)
         self.pipeline_height.setValue(2048)
