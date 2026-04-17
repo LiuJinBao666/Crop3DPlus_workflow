@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 
 import torch
@@ -20,36 +21,90 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 SUPPORTED_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 
+LogCallback = Callable[[str], None]
+ImageProgressCallback = Callable[[int, int, str], None]
+
+_MODEL_CACHE = None
+_MODEL_CACHE_KEY = None
+
+
+def build_transform(image_size: tuple[int, int]):
+    return transforms.Compose([
+        transforms.Resize(image_size),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406],
+                             [0.229, 0.224, 0.225])
+    ])
+
+
+transform_image = build_transform(IMAGE_SIZE)
+
 # =========================
 # 加载模型
 # =========================
-print(f"Loading model: {MODEL_ID}")
-birefnet = AutoModelForImageSegmentation.from_pretrained(
-    MODEL_ID,
-    trust_remote_code=True
-)
-
 torch.set_float32_matmul_precision("high")
 
-birefnet.to(DEVICE)
-birefnet.eval()
 
-if DEVICE == "cuda" and USE_FP16:
-    birefnet.half()
-    print("Using FP16 on CUDA")
-else:
-    print(f"Using device: {DEVICE}")
+def resolve_device(device: str | None = None) -> str:
+    if device in {None, "", "auto"}:
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    return device
 
 
-# =========================
-# 预处理
-# =========================
-transform_image = transforms.Compose([
-    transforms.Resize(IMAGE_SIZE),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406],
-                         [0.229, 0.224, 0.225])
-])
+def configure_runtime(
+    *,
+    model_id: str | None = None,
+    image_size: tuple[int, int] | None = None,
+    use_fp16: bool | None = None,
+    device: str | None = None,
+) -> None:
+    global MODEL_ID, IMAGE_SIZE, USE_FP16, DEVICE, transform_image, _MODEL_CACHE, _MODEL_CACHE_KEY
+
+    if model_id is not None and model_id != MODEL_ID:
+        MODEL_ID = model_id
+        _MODEL_CACHE = None
+        _MODEL_CACHE_KEY = None
+
+    if image_size is not None and image_size != IMAGE_SIZE:
+        IMAGE_SIZE = image_size
+        transform_image = build_transform(IMAGE_SIZE)
+
+    if use_fp16 is not None:
+        USE_FP16 = use_fp16
+
+    if device is not None:
+        DEVICE = resolve_device(device)
+        _MODEL_CACHE = None
+        _MODEL_CACHE_KEY = None
+
+
+def load_model(logger: LogCallback = print):
+    logger(f"Loading model: {MODEL_ID}")
+    model = AutoModelForImageSegmentation.from_pretrained(
+        MODEL_ID,
+        trust_remote_code=True
+    )
+
+    model.to(DEVICE)
+    model.eval()
+
+    if DEVICE == "cuda" and USE_FP16:
+        model.half()
+        logger("Using FP16 on CUDA")
+    else:
+        logger(f"Using device: {DEVICE}")
+
+    return model
+
+
+def get_model(logger: LogCallback = print):
+    global _MODEL_CACHE, _MODEL_CACHE_KEY
+
+    cache_key = (MODEL_ID, DEVICE, USE_FP16)
+    if _MODEL_CACHE is None or _MODEL_CACHE_KEY != cache_key:
+        _MODEL_CACHE = load_model(logger)
+        _MODEL_CACHE_KEY = cache_key
+    return _MODEL_CACHE
 
 
 def print_progress(current: int, total: int, current_name: str):
@@ -80,7 +135,7 @@ def predict_mask(model, image: Image.Image) -> Image.Image:
     if DEVICE == "cuda" and USE_FP16:
         input_tensor = input_tensor.half()
 
-    with torch.no_grad():
+    with torch.inference_mode():
         preds = model(input_tensor)[-1].sigmoid().cpu()
 
     pred = preds[0].squeeze(0)  # [H, W]
@@ -104,10 +159,18 @@ def make_whitebg(image: Image.Image, mask: Image.Image) -> Image.Image:
     return composed.convert("RGB")
 
 
-def process_one_image(image_path: Path, mask_dir: Path, rgba_dir: Path, white_dir: Path) -> tuple[bool, str]:
+def process_one_image(
+    image_path: Path,
+    mask_dir: Path,
+    rgba_dir: Path,
+    white_dir: Path,
+    *,
+    model=None,
+) -> tuple[bool, str]:
     try:
         image = load_image_rgb(str(image_path))
-        mask = predict_mask(birefnet, image)
+        resolved_model = model if model is not None else get_model()
+        mask = predict_mask(resolved_model, image)
         rgba = make_rgba(image, mask)
         whitebg = make_whitebg(image, mask)
 
@@ -122,11 +185,32 @@ def process_one_image(image_path: Path, mask_dir: Path, rgba_dir: Path, white_di
         return False, f"{image_path.name}: {e}"
 
 
-def process_one_folder(input_dir: Path, output_root: Path):
-    image_files = [p for p in input_dir.iterdir() if p.is_file() and p.suffix.lower() in SUPPORTED_EXTS]
+def iter_input_folders(input_root: Path) -> list[Path]:
+    subfolders = sorted([p for p in input_root.iterdir() if p.is_dir()], key=lambda p: p.name.lower())
+    if not subfolders:
+        raise FileNotFoundError(f"No subfolders found in: {input_root}")
+    return subfolders
+
+
+def count_supported_images(input_dir: Path) -> int:
+    return sum(1 for p in input_dir.iterdir() if p.is_file() and p.suffix.lower() in SUPPORTED_EXTS)
+
+
+def process_one_folder(
+    input_dir: Path,
+    output_root: Path,
+    *,
+    model=None,
+    logger: LogCallback = print,
+    progress_callback: ImageProgressCallback | None = None,
+):
+    image_files = sorted(
+        [p for p in input_dir.iterdir() if p.is_file() and p.suffix.lower() in SUPPORTED_EXTS],
+        key=lambda p: p.name.lower(),
+    )
     if not image_files:
-        print(f"No supported images found in {input_dir.name}.")
-        return
+        logger(f"No supported images found in {input_dir.name}.")
+        return 0
 
     output_dir = output_root / input_dir.name
     mask_dir = output_dir / "masks"
@@ -137,35 +221,62 @@ def process_one_folder(input_dir: Path, output_root: Path):
     rgba_dir.mkdir(parents=True, exist_ok=True)
     white_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\nProcessing folder: {input_dir.name}")
-    print(f"Found {len(image_files)} image(s).")
+    logger(f"\nProcessing folder: {input_dir.name}")
+    logger(f"Found {len(image_files)} image(s).")
     total = len(image_files)
+    resolved_model = model if model is not None else get_model(logger)
+
     for idx, img_path in enumerate(image_files, start=1):
-        ok, message = process_one_image(img_path, mask_dir, rgba_dir, white_dir)
+        ok, message = process_one_image(
+            img_path,
+            mask_dir,
+            rgba_dir,
+            white_dir,
+            model=resolved_model,
+        )
         if not ok:
-            print()
-            print(f"[FAIL] {message}")
-        print_progress(idx, total, img_path.name)
+            logger(f"[FAIL] {message}")
+        if progress_callback is not None:
+            progress_callback(idx, total, img_path.name)
+        else:
+            print_progress(idx, total, img_path.name)
 
-    print(f"Done: {input_dir.name}")
+    logger(f"Done: {input_dir.name}")
+    return total
 
 
-def main():
-    input_root = Path(INPUT_ROOT)
-    output_root = Path(OUTPUT_ROOT)
-    if not input_root.exists():
-        raise FileNotFoundError(f"Input folder not found: {INPUT_ROOT}")
+def process_root(
+    input_root: Path | str,
+    output_root: Path | str,
+    *,
+    logger: LogCallback = print,
+    progress_callback: ImageProgressCallback | None = None,
+):
+    input_root_path = Path(input_root)
+    output_root_path = Path(output_root)
+    if not input_root_path.exists():
+        raise FileNotFoundError(f"Input folder not found: {input_root_path}")
 
-    subfolders = sorted([p for p in input_root.iterdir() if p.is_dir()], key=lambda p: p.name.lower())
-    if not subfolders:
-        raise FileNotFoundError(f"No subfolders found in: {INPUT_ROOT}")
-
-    output_root.mkdir(parents=True, exist_ok=True)
+    subfolders = iter_input_folders(input_root_path)
+    output_root_path.mkdir(parents=True, exist_ok=True)
+    model = get_model(logger)
 
     total_folders = len(subfolders)
     for idx, folder_path in enumerate(subfolders, start=1):
-        print(f"\n=== Folder {idx}/{total_folders} ===")
-        process_one_folder(folder_path, output_root)
+        logger(f"\n=== Folder {idx}/{total_folders} ===")
+        process_one_folder(
+            folder_path,
+            output_root_path,
+            model=model,
+            logger=logger,
+            progress_callback=progress_callback,
+        )
+
+    return subfolders
+
+
+def main():
+    process_root(INPUT_ROOT, OUTPUT_ROOT)
 
 
 if __name__ == "__main__":

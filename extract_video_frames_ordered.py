@@ -1,4 +1,5 @@
 import subprocess
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
@@ -21,6 +22,8 @@ DATETIME_FORMATS = (
     "%Y-%m-%d %H:%M:%S",
     "%Y:%m:%d %H:%M:%S",
 )
+
+LogCallback = Callable[[str], None]
 
 
 def run_command(command: list[str]) -> subprocess.CompletedProcess:
@@ -163,36 +166,49 @@ def build_video_infos(folder_path: Path) -> list[tuple[datetime, str, Path, floa
     return video_infos
 
 
-def process_one_folder(folder_path: Path, output_dir: Path) -> None:
+def iter_input_folders(input_dir: Path) -> list[Path]:
+    subfolders = sorted([p for p in input_dir.iterdir() if p.is_dir()], key=lambda p: p.name.lower())
+    if not subfolders:
+        raise FileNotFoundError(f"No subfolders found in: {input_dir}")
+    return subfolders
+
+
+def process_one_folder(folder_path: Path, output_dir: Path, logger: LogCallback = print) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     video_infos = build_video_infos(folder_path)
 
     current_index = 1
     total_videos = len(video_infos)
-    print(f"\nProcessing folder: {folder_path.name}")
+    logger(f"\nProcessing folder: {folder_path.name}")
     for order, (_, _, video_path, duration, frame_count) in enumerate(video_infos, start=1):
-        print(f"[{order}/{total_videos}] Extracting {frame_count} frame(s) from {video_path.name} ...")
+        logger(f"[{order}/{total_videos}] Extracting {frame_count} frame(s) from {video_path.name} ...")
         extract_frames(video_path, output_dir, current_index, frame_count, duration)
         current_index += frame_count
 
-    print(f"Done: {folder_path.name}")
-    print(f"Frames saved to: {output_dir}")
-    print(f"Total images: {current_index - 1}")
+    total_images = current_index - 1
+    logger(f"Done: {folder_path.name}")
+    logger(f"Frames saved to: {output_dir}")
+    logger(f"Total images: {total_images}")
+    return total_images
 
 
-def main() -> None:
-    if not INPUT_DIR.exists() or not INPUT_DIR.is_dir():
-        raise FileNotFoundError(f"Input folder not found: {INPUT_DIR}")
+def process_root(input_dir: Path, output_dir: Path, logger: LogCallback = print) -> list[Path]:
+    if not input_dir.exists() or not input_dir.is_dir():
+        raise FileNotFoundError(f"Input folder not found: {input_dir}")
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    subfolders = sorted([p for p in INPUT_DIR.iterdir() if p.is_dir()], key=lambda p: p.name.lower())
-    if not subfolders:
-        raise FileNotFoundError(f"No subfolders found in: {INPUT_DIR}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    subfolders = iter_input_folders(input_dir)
 
     total_folders = len(subfolders)
     for idx, folder_path in enumerate(subfolders, start=1):
-        print(f"\n=== Folder {idx}/{total_folders} ===")
-        process_one_folder(folder_path, OUTPUT_DIR / folder_path.name)
+        logger(f"\n=== Folder {idx}/{total_folders} ===")
+        process_one_folder(folder_path, output_dir / folder_path.name, logger=logger)
+
+    return subfolders
+
+
+def main() -> None:
+    process_root(Path(INPUT_DIR), Path(OUTPUT_DIR))
 
 
 if __name__ == "__main__":
