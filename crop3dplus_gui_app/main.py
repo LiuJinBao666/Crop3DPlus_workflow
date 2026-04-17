@@ -11,146 +11,233 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WINDOW_TITLE = "Crop3DPlus Workbench"
 
 APP_STYLESHEET = """
-QWidget {
-    background: #f4f1e8;
-    color: #203126;
-    font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
-    font-size: 13px;
+/* Global Font & Reset */
+* {
+    font-family: "Segoe UI", "Microsoft YaHei UI", -apple-system, sans-serif;
+    font-size: 14px;
 }
+
+/* Main Window */
 QMainWindow {
-    background: #efe8d8;
+    background: #F8FAFC;
 }
+
+/* Cards and Panels */
 QFrame#card {
-    background: #fffdf8;
-    border: 1px solid #d9d2c2;
-    border-radius: 18px;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
 }
+
 QFrame#navCard {
-    background: #203126;
-    border: 0;
-    border-radius: 22px;
+    background: #1E293B;
+    border: none;
+    border-radius: 12px;
 }
+
+/* Typography */
 QLabel#heroTitle {
     font-size: 28px;
-    font-weight: 700;
-    color: #16361f;
+    font-weight: 800;
+    color: #0F172A;
+    letter-spacing: -0.5px;
 }
+
 QLabel#heroSubtitle {
-    color: #526257;
-    font-size: 13px;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.5;
 }
+
 QLabel#navTitle {
-    color: #f6f2e8;
-    font-size: 21px;
+    color: #FFFFFF;
+    font-size: 20px;
     font-weight: 700;
+    margin-bottom: 8px;
 }
+
 QLabel#navBody {
-    color: #c9d3ca;
-    font-size: 12px;
-    line-height: 1.4em;
+    color: #94A3B8;
+    font-size: 13px;
+    line-height: 1.5;
 }
+
+/* Navigation Buttons */
 QPushButton#navButton {
     background: transparent;
-    border: 1px solid rgba(227, 231, 220, 0.22);
-    border-radius: 14px;
-    color: #f2f4ee;
-    font-size: 14px;
+    border: none;
+    border-radius: 8px;
+    color: #CBD5E1;
+    font-size: 15px;
     font-weight: 600;
-    padding: 14px 16px;
+    padding: 12px 16px;
     text-align: left;
 }
+
 QPushButton#navButton:hover {
-    border-color: rgba(255, 255, 255, 0.38);
-    background: rgba(255, 255, 255, 0.06);
+    background: #334155;
+    color: #F8FAFC;
 }
+
 QPushButton#navButton:checked {
-    background: #d2e3bb;
-    color: #1f321d;
-    border-color: #d2e3bb;
+    background: #10B981;
+    color: #FFFFFF;
 }
+
+/* Page Headers */
 QLabel#pageTitle {
-    font-size: 23px;
+    font-size: 24px;
     font-weight: 700;
-    color: #18341e;
+    color: #0F172A;
 }
+
 QLabel#pageBody {
-    color: #5c675f;
+    color: #64748B;
+    font-size: 14px;
 }
+
+/* Group Boxes */
 QGroupBox {
-    border: 1px solid #dbd4c4;
-    border-radius: 16px;
-    margin-top: 16px;
-    padding-top: 16px;
-    font-weight: 600;
-    color: #25402a;
-    background: #fffdf9;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    margin-top: 24px;
+    padding-top: 24px;
+    font-weight: 700;
+    color: #334155;
+    background: #FFFFFF;
 }
+
 QGroupBox::title {
     subcontrol-origin: margin;
-    left: 14px;
-    padding: 0 6px;
+    subcontrol-position: top left;
+    left: 16px;
+    top: 4px;
+    padding: 0 4px;
+    color: #10B981;
 }
+
+/* Inputs */
 QLineEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
-    background: #fbfaf5;
-    border: 1px solid #d4cfbf;
-    border-radius: 10px;
-    padding: 8px 10px;
-    selection-background-color: #7e9b58;
+    background: #F1F5F9;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #0F172A;
+    selection-background-color: #10B981;
+    selection-color: white;
 }
+
 QLineEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
-    border-color: #7e9b58;
+    background: #FFFFFF;
+    border: 1px solid #10B981;
 }
+
+/* ComboBox dropdown */
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border-left: 1px solid #E2E8F0;
+}
+QComboBox QAbstractItemView {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
+    selection-background-color: #10B981;
+}
+
+/* SpinBox Tweaks */
+QSpinBox::up-button, QSpinBox::down-button, QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+    width: 20px;
+    border: none;
+    border-left: 1px solid #E2E8F0;
+    background: transparent;
+}
+QSpinBox::up-button:hover, QSpinBox::down-button:hover, QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
+    background: #E2E8F0;
+}
+
+/* Primary Buttons */
 QPushButton {
-    background: #243d23;
-    color: #f6f2e8;
-    border: 0;
-    border-radius: 12px;
-    padding: 10px 16px;
-    font-weight: 600;
+    background: #10B981;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-weight: 700;
+    font-size: 14px;
 }
+
 QPushButton:hover {
-    background: #2d492c;
+    background: #059669;
 }
+
+QPushButton:pressed {
+    background: #047857;
+}
+
 QPushButton:disabled {
-    background: #9ca49d;
-    color: #e9ede7;
+    background: #94A3B8;
+    color: #F8FAFC;
 }
+
+/* Secondary Actions */
 QPushButton#secondaryButton {
-    background: #ece4d3;
-    color: #284029;
-    border: 1px solid #d1c7b2;
+    background: #F1F5F9;
+    color: #475569;
+    border: 1px solid #E2E8F0;
 }
+
 QPushButton#secondaryButton:hover {
-    background: #e3d9c5;
+    background: #E2E8F0;
+    color: #0F172A;
 }
+
+/* Checkboxes */
 QCheckBox {
     spacing: 8px;
+    color: #334155;
+    font-weight: 600;
 }
+
+/* Progress Bar */
 QProgressBar {
-    background: #ece6d8;
-    border-radius: 9px;
-    border: 1px solid #d8d1c2;
-    min-height: 18px;
+    background: #F1F5F9;
+    border-radius: 8px;
+    border: none;
+    min-height: 16px;
     text-align: center;
+    color: #0F172A;
+    font-weight: 600;
 }
+
 QProgressBar::chunk {
-    background: #88a85b;
+    background: #10B981;
     border-radius: 8px;
 }
+
+/* Scroll Areas */
 QScrollArea {
-    border: 0;
+    border: none;
     background: transparent;
 }
+
 QScrollBar:vertical {
     background: transparent;
-    width: 10px;
-    margin: 4px 0 4px 0;
+    width: 8px;
+    margin: 2px 0 2px 0;
 }
+
 QScrollBar::handle:vertical {
-    background: #c0b8a6;
-    border-radius: 5px;
-    min-height: 28px;
+    background: #CBD5E1;
+    border-radius: 4px;
+    min-height: 30px;
 }
+
+QScrollBar::handle:vertical:hover {
+    background: #94A3B8;
+}
+
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0;
 }
@@ -253,13 +340,13 @@ class MainWindow(QtWidgets.QMainWindow):
     def _apply_window_icon(self) -> None:
         icon = QtGui.QIcon()
         pixmap = QtGui.QPixmap(64, 64)
-        pixmap.fill(QtGui.QColor("#203126"))
+        pixmap.fill(QtCore.Qt.transparent)
         painter = QtGui.QPainter(pixmap)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
         painter.setPen(QtCore.Qt.NoPen)
-        painter.setBrush(QtGui.QColor("#d2e3bb"))
-        painter.drawRoundedRect(8, 8, 48, 48, 14, 14)
-        painter.setPen(QtGui.QColor("#203126"))
+        painter.setBrush(QtGui.QColor("#1E293B"))
+        painter.drawRoundedRect(4, 4, 56, 56, 14, 14)
+        painter.setPen(QtGui.QColor("#10B981"))
         font = QtGui.QFont("Segoe UI", 26)
         font.setBold(True)
         painter.setFont(font)
@@ -315,7 +402,7 @@ class MainWindow(QtWidgets.QMainWindow):
         ):
             badge = QtWidgets.QLabel(text)
             badge.setStyleSheet(
-                "QLabel { background: #e7efda; color: #2d472d; border-radius: 10px; padding: 8px 12px; font-weight: 600; }"
+                "QLabel { background: #ECFDF5; color: #047857; border-radius: 6px; padding: 6px 12px; font-weight: 700; font-size: 12px; }"
             )
             badges.addWidget(badge)
         badges.addStretch(1)
@@ -324,16 +411,16 @@ class MainWindow(QtWidgets.QMainWindow):
         art = QtWidgets.QFrame()
         art.setFixedWidth(240)
         art.setStyleSheet(
-            "QFrame { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #213325, stop:1 #506b34);"
-            "border-radius: 20px; border: 1px solid #31492e; }"
+            "QFrame { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1E293B, stop:1 #0F172A);"
+            "border-radius: 12px; border: 1px solid #334155; }"
         )
         art_layout = QtWidgets.QVBoxLayout(art)
-        art_layout.setContentsMargins(18, 18, 18, 18)
+        art_layout.setContentsMargins(20, 20, 20, 20)
         art_layout.setSpacing(8)
         art_title = QtWidgets.QLabel("Workflow")
-        art_title.setStyleSheet("QLabel { color: #f4f1e8; font-size: 18px; font-weight: 700; background: transparent; }")
+        art_title.setStyleSheet("QLabel { color: #F8FAFC; font-size: 18px; font-weight: 800; background: transparent; }")
         art_body = QtWidgets.QLabel("Video\n↓\nRGB Frames\n↓\nMasks / RGBA / WhiteBG")
-        art_body.setStyleSheet("QLabel { color: #d8e3d1; font-size: 14px; font-weight: 600; background: transparent; }")
+        art_body.setStyleSheet("QLabel { color: #94A3B8; font-size: 14px; font-weight: 600; background: transparent; line-height: 1.5; }")
         art_body.setAlignment(QtCore.Qt.AlignCenter)
         art_layout.addWidget(art_title)
         art_layout.addStretch(1)
@@ -498,6 +585,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.segment_model_id = QtWidgets.QLineEdit("ZhengPeng7/BiRefNet_HR")
 
         image_size_row = QtWidgets.QHBoxLayout()
+        image_size_row.setContentsMargins(0, 0, 0, 0)
         self.segment_width = NoWheelSpinBox()
         self.segment_width.setRange(256, 8192)
         self.segment_width.setSingleStep(256)
@@ -582,6 +670,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.pipeline_model_id = QtWidgets.QLineEdit("ZhengPeng7/BiRefNet_HR")
         size_row = QtWidgets.QHBoxLayout()
+        size_row.setContentsMargins(0, 0, 0, 0)
         self.pipeline_width = NoWheelSpinBox()
         self.pipeline_width.setRange(256, 8192)
         self.pipeline_width.setSingleStep(256)
@@ -627,7 +716,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         top = QtWidgets.QHBoxLayout()
         self.status_label = QtWidgets.QLabel("就绪。请选择功能并填写目录。")
-        self.status_label.setStyleSheet("QLabel { color: #304336; font-weight: 600; }")
+        self.status_label.setStyleSheet("QLabel { color: #0F172A; font-weight: 700; }")
         clear_button = QtWidgets.QPushButton("清空日志")
         clear_button.setObjectName("secondaryButton")
         clear_button.clicked.connect(lambda: self.log_edit.setPlainText(""))
